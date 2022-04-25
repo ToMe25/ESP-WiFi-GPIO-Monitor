@@ -12,6 +12,7 @@
 #include "driver/timer.h"
 #include <map>
 #include <unordered_set>
+#include <vector>
 
 struct pin_state;
 
@@ -193,11 +194,11 @@ private:
 	 * The config used for the debounce timer.
 	 */
 	timer_config_t debounce_timer_config = {
-		false,
-		false,
+		TIMER_ALARM_DIS,
+		TIMER_PAUSE,
 		TIMER_INTR_LEVEL,
 		TIMER_COUNT_UP,
-		false,
+		TIMER_AUTORELOAD_DIS,
 		80,
 	};
 

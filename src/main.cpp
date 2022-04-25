@@ -16,16 +16,19 @@ void setup() {
 
 	WiFi.disconnect(true);
 
-	WiFi.onEvent(onWiFiStart, SYSTEM_EVENT_STA_START);
-	WiFi.onEvent(onWiFiConnected, SYSTEM_EVENT_STA_CONNECTED);
+	WiFi.onEvent(onWiFiStart, ARDUINO_EVENT_WIFI_STA_START);
+	WiFi.onEvent(onWiFiConnected, ARDUINO_EVENT_WIFI_STA_CONNECTED);
 	if (!STATIC_IP_ENABLED) {
-		WiFi.onEvent(onWiFiGotIp, SYSTEM_EVENT_STA_GOT_IP);
+		WiFi.onEvent(onWiFiGotIp, ARDUINO_EVENT_WIFI_STA_GOT_IP);
 	}
 
-	WiFi.mode(WIFI_STA);
+	WiFi.onEvent([] (WiFiEvent_t id) {
+		WiFi.disconnect(true);
+		delay(10);
+		WiFi.begin(WIFI_SSID, WIFI_PASS);
+	}, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 
-	WiFi.setAutoReconnect(true);
-	WiFi.setSleep(false);
+	WiFi.mode(WIFI_STA);
 
 	if (STATIC_IP_ENABLED) {
 		WiFi.config(STATIC_IP, GATEWAY_IP, NETMASK);
@@ -49,7 +52,7 @@ void setup() {
 }
 
 void loop() {
-	delay(20);
+	delay(100);
 
 	ArduinoOTA.handle();
 

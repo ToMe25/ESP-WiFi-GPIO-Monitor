@@ -20,6 +20,7 @@ WebServerHandler::~WebServerHandler() {
 
 void WebServerHandler::setup() {
 	using namespace std::placeholders;
+
 	server.rewrite("/", "/index.html");
 
 	server.on("/index.html", HTTP_GET,
@@ -178,6 +179,7 @@ void WebServerHandler::handleSettings(AsyncWebServerRequest *request) const {
 				message = "Successfully added Pin to be watched.";
 			} else if (action == "update") {
 				err = gpio_handler.updateGPIO(atoi(pin.c_str()), name, pull_up);
+				delay(gpio_handler.getDebounceTimeout());
 				message = "Successfully updated watched Pin.";
 			} else if (action == "delete") {
 				err = gpio_handler.unregisterGPIO(atoi(pin.c_str()));
