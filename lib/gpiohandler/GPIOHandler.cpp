@@ -11,15 +11,13 @@ GPIOHandler gpio_handler;
 
 GPIOHandler::GPIOHandler() {
 	dirty_states.reserve(20);
-	timer_init(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer, &debounce_timer_config);
-	timer_enable_intr(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer);
-	timer_isr_register(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer, timerInterrupt, this, 0, NULL);
-	timer_set_counter_value(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer, 0);
 }
 
 GPIOHandler::~GPIOHandler() {
-	timer_isr_register(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer, NULL, NULL, 0, NULL);
-	timer_disable_intr(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer);
+	if (debounce_timer != NULL) {
+		esp_timer_stop(debounce_timer);
+		esp_timer_delete(debounce_timer);
+	}
 }
 
 gpio_err_t GPIOHandler::registerGPIO(const uint8_t pin, String name, const bool pull_up) {
@@ -39,6 +37,10 @@ gpio_err_t GPIOHandler::registerGPIO(const uint8_t pin, String name, const bool 
 
 	if (!std::all_of(name.begin(), name.end(), GPIOHandler::isValidNameChar)) {
 		return GPIO_NAME_INVALID;
+	}
+
+	if (debounce_timeout > 0 && debounce_timer == NULL) {
+		esp_timer_create(&debounce_timer_config, &debounce_timer);
 	}
 
 	if (pull_up) {
@@ -170,6 +172,14 @@ bool GPIOHandler::interrupsEnabled() const {
 
 void GPIOHandler::setDebounceTimeout(const uint16_t timeout) {
 	debounce_timeout = timeout;
+
+	if (timeout == 0) {
+		esp_timer_stop(debounce_timer);
+		for (pin_state *pin : dirty_states) {
+			updatePin(pin);
+		}
+		dirty_states.clear();
+	}
 }
 
 uint16_t GPIOHandler::getDebounceTimeout() const {
@@ -227,8 +237,6 @@ void IRAM_ATTR GPIOHandler::timerInterrupt(void *arg) {
 					handler->dirty_states.end(), (pin_state*) NULL),
 			handler->dirty_states.end());
 
-	TIMERG0.int_clr_timers.t1 = 1;
-
 	if (next_update == 0 && handler->dirty_states.size() > 0) {
 		for (pin_state *pin : handler->dirty_states) {
 			if (next_update == 0 || handler->debounce_timeout + pin->raw_last_change - now < next_update) {
@@ -240,9 +248,7 @@ void IRAM_ATTR GPIOHandler::timerInterrupt(void *arg) {
 		}
 	}
 
-	if (next_update == 0) {
-		timer_pause(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer);
-	} else {
+	if (next_update > 0) {
 		handler->startTimer(next_update);
 	}
 }
@@ -261,9 +267,8 @@ void IRAM_ATTR GPIOHandler::updatePin(pin_state *pin) {
 		if (debounce_timeout > 0) {
 			if (std::count(dirty_states.begin(), dirty_states.end(), pin) == 0) {
 				dirty_states.push_back(pin);
+				pin->handler->startTimer(debounce_timeout);
 			}
-
-			pin->handler->startTimer(debounce_timeout);
 		} else {
 			pin->state = state;
 			pin->last_change = pin->raw_last_change;
@@ -273,20 +278,8 @@ void IRAM_ATTR GPIOHandler::updatePin(pin_state *pin) {
 }
 
 void IRAM_ATTR GPIOHandler::startTimer(const uint16_t delay) {
-	uint64_t counter_val;
-	timer_get_counter_value(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer, &counter_val);
-	uint64_t alarm_val;
-	timer_get_alarm_value(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer, &alarm_val);
-	timer_config_t config;
-	timer_get_config(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer, &config);
-
-	if (!config.alarm_en) {
-		timer_set_counter_value(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer, 0);
-		timer_set_alarm_value(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer, delay * 1000);
-		timer_set_alarm(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer, TIMER_ALARM_EN);
-		timer_start(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer);
-	} else if (counter_val + delay * 1000 < alarm_val) {
-		timer_set_alarm_value(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer, counter_val + delay * 1000);
+	if (!esp_timer_is_active(debounce_timer)) {
+		esp_timer_start_once(debounce_timer, delay);
 	}
 }
 

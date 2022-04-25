@@ -9,20 +9,11 @@
 #define LIB_GPIOHANDLER_H_
 
 #include <Arduino.h>
-#include "driver/timer.h"
 #include <map>
 #include <unordered_set>
 #include <vector>
 
 struct pin_state;
-
-/**
- * A helper struct representing a ESP32 hardware timer.
- */
-struct hw_timer_index_t {
-	timer_group_t group;
-	timer_idx_t timer;
-};
 
 /**
  * The different errors that can occur when registering, unregistering or updating a watched pin.
@@ -171,9 +162,9 @@ public:
 	uint16_t getDebounceTimeout() const;
 private:
 	/**
-	 * The timer used to check the pin state for debouncing.
+	 * The handle used to interact with the debounce timer.
 	 */
-	static constexpr hw_timer_index_t DEBOUNCE_TIMER = { TIMER_GROUP_0, TIMER_1 };
+	esp_timer_handle_t debounce_timer = NULL;
 
 	/**
 	 * The pins that are currently being watched.
@@ -193,13 +184,12 @@ private:
 	/**
 	 * The config used for the debounce timer.
 	 */
-	timer_config_t debounce_timer_config = {
-		TIMER_ALARM_DIS,
-		TIMER_PAUSE,
-		TIMER_INTR_LEVEL,
-		TIMER_COUNT_UP,
-		TIMER_AUTORELOAD_DIS,
-		80,
+	esp_timer_create_args_t debounce_timer_config = {
+		timerInterrupt,
+		this,
+		ESP_TIMER_TASK,
+		"Debouncer",
+		false,
 	};
 
 	/**

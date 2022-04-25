@@ -13,3 +13,4 @@ A list of changes/additions for this program to implement in the future.
  * Add debounce timeout to settings page
  * Add a settings log showing the last X settings changes(general settings, pins added, pins updated, and pins deleted)
  * Make / automatically redirect to /settings.html if no pin is registered and /index.html otherwise
+ * Change debounce timer to os_timer or Ticker
