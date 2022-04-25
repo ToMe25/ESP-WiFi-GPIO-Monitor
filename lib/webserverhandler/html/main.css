@@ -1,0 +1,216 @@
+/* This is the start of the common css for most of my esp projects */
+body {
+	background-color: #c2cbd1;
+	text-align: center;
+}
+
+.main {
+	--border-color: #808080;
+	background-color: #ededed;
+	color: #0d0d0d;
+	font-size: 2em;
+	border: 4px solid var(--border-color);
+	border-radius: 10px;
+	display: inline-block;
+	padding: 30px;
+	margin: 5% 0;
+}
+
+h1 {
+	font-size: 2.2em;
+	margin: 5% 0.3em;
+}
+
+h3, label, p {
+	color: #3F3F48;
+	font-weight: bold;
+	margin: 0.3em 0;
+}
+
+@media (prefers-color-scheme: dark) {
+	body {
+		background-color: #222221;
+	}
+
+	.main {
+		background-color: #131312;
+		color: #aab1b5;
+		--border-color: #484946;
+	}
+
+	h3, label, p {
+		color: #8d9398;
+	}
+}
+/* This is the end of the common css for most of my esp projects */
+
+h1 {
+	margin: 0.3em 0;
+}
+
+a:link,
+a:visited,
+a:hover,
+a:active {
+	color: #8d9398;
+}
+
+.state {
+	background-color: #fafafa;
+	border: 1px solid #767676;
+	border-radius: 3px;
+	padding: 5px 15px;
+	margin: 3px;
+}
+
+.value {
+	margin: 10px;
+	white-space: nowrap;
+}
+
+.Lowcolor {
+	background-color: #030303;
+	color: #dadada;
+}
+
+.Highcolor {
+	background-color: #c81818;
+}
+
+button {
+	--bg-color-h: 212;
+	--bg-color-s: 97%;
+	--bg-color-l: 54%;
+	--border-color: hsl(var(--bg-color-h), var(--bg-color-s), calc(var(--bg-color-l) * 2 / 3));
+	background-color: hsl(var(--bg-color-h), var(--bg-color-s), var(--bg-color-l));
+	color: #0f0f0f;
+	font-size: 0.8em;
+	border: 2px solid var(--border-color);
+	border-radius: 6px;
+	box-shadow: -1px -1px 5px var(--border-color), 6px 8px 8px #000000cd;
+	padding: 6px 3em;
+	margin: 5px;
+	margin-top: 12px;
+	transition: all .5s;
+	-webkit-transition: all .5s;
+}
+
+button:focus {
+	outline: none;
+}
+
+button:hover {
+	background-color: hsl(var(--bg-color-h), var(--bg-color-s), calc(var(--bg-color-l) * 16 / 15));
+	border-color: hsl(var(--bg-color-h), var(--bg-color-s), calc(var(--bg-color-l) * 11 / 15));
+	box-shadow: -1px -1px 5px var(--border-color), 3px 5px 6px #000000cd;
+}
+
+button:active {
+	background-color: hsl(var(--bg-color-h), var(--bg-color-s), calc(var(--bg-color-l) * 17 / 15));
+	border-color: hsl(var(--bg-color-h), var(--bg-color-s), calc(var(--bg-color-l) * 11 / 15));
+	box-shadow: none;
+}
+
+.redbtn {
+	--bg-color-h: 0;
+	--bg-color-s: 82%;
+	--bg-color-l: 60%;
+}
+
+.graybtn {
+        --bg-color-h: 0;
+        --bg-color-s: 0%;
+        --bg-color-l: 70%;
+}
+
+input {
+	width: 4.5em;
+	height: 1.1em;
+	background-color: #ffffff;
+	color: #0f0f0f;
+	font-size: 0.8em;
+	border: 2px solid var(--border-color);
+	border-radius: 4px;
+	padding: 4px;
+	margin: 5px;
+}
+
+input[type="radio"] {
+	width: 1.1em;
+}
+
+input:hover {
+	border-color: #8b8b8b;
+}
+
+input:focus {
+	outline: none;
+	border-color: #99aa96;
+}
+
+input:read-only {
+	background-color: #d9d9d9;
+}
+
+input:read-only:hover {
+	border-color: var(--border-color);
+}
+
+input:read-only:focus {
+	border-color: var(--border-color);
+}
+
+.message {
+	border-radius: 25px;
+	padding: 30px;
+	font-size: 1.1em;
+}
+
+.success {
+	background-color: #34F220;
+	border: 3px solid #1A7910;
+}
+
+.error {
+	background-color: #F23420;
+	border: 3px solid #791A10;
+}
+
+@media (prefers-color-scheme: dark) {
+	a:link,
+	a:visited,
+	a:hover,
+	a:active {
+		color: #525550;
+	}
+	
+	.state {
+		background-color: #20201f;
+		border-color: #070707;
+	}
+	
+	button {
+		color: #dfe6e9;
+	}
+	
+	input {
+		background-color: #090908;
+		color: #afb5b8;
+	}
+
+	input:hover {
+		border-color: #3c3c3c;
+	}
+
+	input:focus {
+		border-color: #353e33;
+	}
+
+	input:read-only {
+		background-color: #585858;
+	}
+
+	.message {
+		color: #2d2e2f;
+	}
+}

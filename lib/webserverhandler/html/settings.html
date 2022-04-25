@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="author" content="ToMe25">
+<meta name="description"
+	content="A service to monitor the state of ESP GPIO/GPI pins.">
+<meta name="viewport" content="width=device-width">
+<title>ESP WiFi GPIO Monitor Settings</title>
+<link rel="stylesheet" type="text/css" href="/main.css">
+<script type="text/javascript" src="/settings.js" defer></script>
+</head>
+<body>
+	<div class="main">
+		<div class="message $message_type" hidden>$message</div>
+		<h1>Edit/Remove Pins</h1>
+		<!-- Pin states start -->
+		<!-- Pin states end -->
+		<h1>Add State</h1>
+		<form class="state" name="add" method="post" action="/settings.html">
+			<span class="value"><label>Name: </label> <input type="text"
+				name="name"
+				title="The name for the pin to watch. Allows letters, digits, and spaces."
+				alt="The name for the pin to watch. Allows letters, digits, and spaces."
+				placeholder="Pin Name" maxlength="32" minlength="3" required></span>
+			<span class="value"><label>Pin: </label> <input type="number"
+				name="pin" max="39" min="0" title="The hardware pin to watch."
+				alt="The hardware pin to watch." placeholder="Pin" required></span><br />
+			<span class="value"><label>Resistor: </label><input
+				type="radio" name="resistor" value="pull_up"
+				title="The pin will use an internal pull up resistor."
+				alt="The pin will use an internal pull up resistor." checked><label>Pull
+					Up</label> <input type="radio" name="resistor" value="pull_down"
+				title="The pin will use an internal pull down resistor."
+				alt="The pin will use an internal pull down resistor."><label>Pull
+					Down</label></span><br />
+			<button type="submit" name="action" value="add">Add</button>
+		</form>
+		<h3>Want to go back to the main page?</h3>
+		<form action="/index.html">
+			<label>Click here: </label>
+			<button type="submit" class="redbtn">Back</button>
+		</form>
+	</div>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Platfrom IO
+.pio
+
+# Eclipse
+.project
+.cproject
+.settings/
+
+# Credentials
+wifissid.txt
+wifipass.txt
+otapass.txt

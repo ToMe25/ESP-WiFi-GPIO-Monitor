@@ -1,0 +1,22 @@
+<form class="state" method="post" action="/settings.html">
+	<span class="value"><label>Name: </label> <input type="text"
+		name="name" value="$name"
+		title="The name for the pin to watch. Allows letters, digits, and spaces."
+		alt="The name for the pin to watch. Allows letters, digits, and spaces."
+		placeholder="Pin Name" maxlength="32" minlength="3" required></span>
+	<span class="value"><label>Pin: </label> <input type="number"
+		name="pin" value="$pin" max="39" min="0" title="The hardware pin to watch."
+		alt="The hardware pin to watch." placeholder="Pin" required readonly></span><br />
+	<span class="value"><label>Resistor: </label><input type="radio"
+		name="resistor" value="pull_up"
+		title="The pin will use an internal pull up resistor."
+		alt="The pin will use an internal pull up resistor." $puc><label>Pull
+			Up</label> <input type="radio" name="resistor" value="pull_down"
+		title="The pin will use an internal pull down resistor."
+		alt="The pin will use an internal pull down resistor." $pdc><label>Pull
+			Down</label></span><br />
+	<span class="value">State: <output name="state" class="$statecolor">$state</output></span>
+	<span class="value">Changes: <output name="changes">$changes</output></span><br />
+	<button type="submit" name="action" value="update">Update</button>
+	<button type="submit" name="action" value="delete" formaction="/delete.html" class="redbtn">Delete</button>
+</form>

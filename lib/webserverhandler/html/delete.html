@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="author" content="ToMe25">
+<meta name="description"
+	content="A service to monitor the state of ESP GPIO/GPI pins.">
+<meta name="viewport" content="width=device-width">
+<title>Confirm Delete</title>
+<link rel="stylesheet" type="text/css" href="/main.css">
+</head>
+<body>
+	<div class="main">
+		<div class="message error" hidden>$message</div>
+		<h1>Confirm deleting the selected pin</h1>
+		<form method="post" action="/settings.html">
+			<span class="value">Name: <output name="name">$name</output></span>
+			<span class="value">Pin: <output name="pin">$pin</output></span>
+			<span class="value">Resistor: <output name="resistor">$pull_up</output></span><br />
+			<span class="value">State: <output name="state" class="$statecolor">$state</output></span>
+			<span class="value">Changes: <output name="changes">$changes</output></span><br />
+			<input type="text" name="name" value="$name"
+				title="The name for the pin to watch. Allows letters, digits, and spaces."
+				alt="The name for the pin to watch. Allows letters, digits, and spaces."
+				placeholder="Pin Name" maxlength="32" minlength="3" required
+				readonly hidden>
+			<input type="number" name="pin"
+				value="$pin" max="39" min="0" title="The hardware pin to watch."
+				alt="The hardware pin to watch." placeholder="Pin" required readonly
+				hidden>
+			<input type="text" name="resistor" value="$pull_up"
+				title="The pin will use an internal pull up resistor."
+				alt="The pin will use an internal pull up resistor." required readonly hidden>
+			<button type="submit" name="action" value="cancel" class="graybtn">Cancel</button>
+			<button type="submit" name="action" value="delete" class="redbtn" $confirm>Confirm</button>
+		</form>
+	</div>
+</body>
+</html>
