@@ -11,5 +11,6 @@ A list of changes/additions for this program to implement in the future.
  * Make web interface javascript use long polling to update web interfaces
  * Make config interface have delete confirmation without page reload using javascript
  * Add debounce timeout to settings page
- * Add a settings log showing the last X settings changes(general settings, pins added, pins updated, and pins deleted)
+ * Add a settings log showing the last X(20?) settings changes(general settings, pins added, pins updated, and pins deleted)
  * Make / automatically redirect to /settings.html if no pin is registered and /index.html otherwise
+ * Change debounce timer to os_timer or Ticker
