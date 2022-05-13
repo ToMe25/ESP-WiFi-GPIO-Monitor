@@ -6,11 +6,13 @@
  */
 
 #include "GPIOHandler.h"
+#include "StorageHandler.h"
 
-GPIOHandler gpio_handler;
+GPIOHandler gpio_handler(&storage_handler);
 
-GPIOHandler::GPIOHandler() {
-	dirty_states.reserve(20);
+GPIOHandler::GPIOHandler(StorageHandler *handler) {
+	storage = handler;
+	debouncing_states.reserve(20);
 	timer_init(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer, &debounce_timer_config);
 	timer_enable_intr(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer);
 	timer_isr_register(DEBOUNCE_TIMER.group, DEBOUNCE_TIMER.timer, timerInterrupt, this, 0, NULL);
@@ -23,8 +25,9 @@ GPIOHandler::~GPIOHandler() {
 }
 
 gpio_err_t GPIOHandler::registerGPIO(const uint8_t pin, String name, const bool pull_up) {
-	if (!digitalPinIsValid(pin)) {
-		return GPIO_PIN_INVALID;
+	gpio_err_t err = isValidPin(pin);
+	if (err != GPIO_OK) {
+		return err;
 	}
 
 	if (watched.count(pin) > 0) {
@@ -32,12 +35,7 @@ gpio_err_t GPIOHandler::registerGPIO(const uint8_t pin, String name, const bool 
 	}
 
 	name.trim();
-
-	if (name.length() < 3 || name.length() > 32) {
-		return GPIO_NAME_INVALID;
-	}
-
-	if (!std::all_of(name.begin(), name.end(), GPIOHandler::isValidNameChar)) {
+	if (!isValidName(name)) {
 		return GPIO_NAME_INVALID;
 	}
 
@@ -55,38 +53,39 @@ gpio_err_t GPIOHandler::registerGPIO(const uint8_t pin, String name, const bool 
 		attachInterruptArg(pin, pinInterrupt, &watched.at(pin), CHANGE);
 	}
 
+	writeToStorageHandler(true);
 	return GPIO_OK;
 }
 
 gpio_err_t GPIOHandler::unregisterGPIO(const uint8_t pin) {
+	gpio_err_t err = isValidPin(pin);
+	if (err != GPIO_OK) {
+		return err;
+	}
+
 	if (watched.count(pin) == 0) {
 		return GPIO_NOT_WATCHED;
 	}
 
-	dirty_states.erase(
-			std::remove(dirty_states.begin(), dirty_states.end(),
-					&watched.at(pin)), dirty_states.end());
+	debouncing_states.erase(
+			std::remove(debouncing_states.begin(), debouncing_states.end(),
+					&watched.at(pin)), debouncing_states.end());
+
 	watched.erase(pin);
 	detachInterrupt(pin);
+	writeToStorageHandler(true);
 	return GPIO_OK;
 }
 
 gpio_err_t GPIOHandler::updateGPIO(const uint8_t pin, String name, const bool pull_up) {
+	gpio_err_t err = isValidPin(pin);
+	if (err != GPIO_OK) {
+		return err;
+	}
+
 	if (watched.count(pin) == 0) {
 		return GPIO_NOT_WATCHED;
 	}
-
-	name.trim();
-
-	if (name.length() < 3 || name.length() > 32) {
-		return GPIO_NAME_INVALID;
-	}
-
-	if (!std::all_of(name.begin(), name.end(), GPIOHandler::isValidNameChar)) {
-		return GPIO_NAME_INVALID;
-	}
-
-	watched.at(pin).name = name;
 
 	if (watched.at(pin).pull_up != pull_up) {
 		watched.at(pin).pull_up = pull_up;
@@ -104,7 +103,7 @@ gpio_err_t GPIOHandler::updateGPIO(const uint8_t pin, String name, const bool pu
 		}
 	}
 
-	return GPIO_OK;
+	return setName(pin, name);
 }
 
 void GPIOHandler::checkPins() {
@@ -129,12 +128,49 @@ uint64_t GPIOHandler::getChanges(const uint8_t pin) const {
 	return watched.at(pin).changes;
 }
 
+gpio_err_t GPIOHandler::setChanges(const uint8_t pin, const uint64_t changes) {
+	gpio_err_t err = isValidPin(pin);
+	if (err != GPIO_OK) {
+		return err;
+	}
+
+	if (watched.count(pin) == 0) {
+		return GPIO_NOT_WATCHED;
+	}
+
+	if (watched.at(pin).changes != changes) {
+		watched.at(pin).changes = changes;
+		dirty = true;
+	}
+	return GPIO_OK;
+}
+
 String GPIOHandler::getName(const uint8_t pin) const {
 	if (watched.count(pin) == 0) {
 		return "";
 	}
 
 	return watched.at(pin).name;
+}
+
+gpio_err_t GPIOHandler::setName(const uint8_t pin, String name) {
+	gpio_err_t err = isValidPin(pin);
+	if (err != GPIO_OK) {
+		return err;
+	}
+
+	if (watched.count(pin) == 0) {
+		return GPIO_NOT_WATCHED;
+	}
+
+	name.trim();
+	if (!isValidName(name)) {
+		return GPIO_NAME_INVALID;
+	}
+
+	watched.at(pin).name = name;
+	writeToStorageHandler(true);
+	return GPIO_OK;
 }
 
 bool GPIOHandler::isWatched(const uint8_t pin) const {
@@ -176,6 +212,38 @@ uint16_t GPIOHandler::getDebounceTimeout() const {
 	return debounce_timeout;
 }
 
+void GPIOHandler::setStorageHandler(StorageHandler *handler, bool write) {
+	storage = handler;
+	if (write && handler != storage) {
+		writeToStorageHandler(true);
+	}
+}
+
+StorageHandler* GPIOHandler::getStorageHandler() const {
+	return storage;
+}
+
+void GPIOHandler::writeToStorageHandler(bool force) {
+	if (dirty || force) {
+		dirty = false;
+		if (storage != NULL) {
+			storage->storeGPIOHandler(*this);
+		}
+	}
+}
+
+gpio_err_t GPIOHandler::isValidPin(const uint8_t pin) {
+	if (!digitalPinIsValid(pin)) {
+		return GPIO_PIN_INVALID;
+	}
+
+	if (pin >= 6 && pin <= 11) {
+		return GPIO_FLASH_PIN;
+	}
+
+	return GPIO_OK;
+}
+
 void IRAM_ATTR GPIOHandler::pinInterrupt(void *arg) {
 	if (arg == NULL) {
 		return;
@@ -194,8 +262,8 @@ void IRAM_ATTR GPIOHandler::timerInterrupt(void *arg) {
 	uint16_t next_update = 0;
 	const uint64_t now = millis();
 	pin_state *pin;
-	for (size_t i = 0; i < handler->dirty_states.size(); i++) {
-		pin = handler->dirty_states[i];
+	for (size_t i = 0; i < handler->debouncing_states.size(); i++) {
+		pin = handler->debouncing_states[i];
 		if (pin == NULL) {
 			continue;
 		}
@@ -215,22 +283,23 @@ void IRAM_ATTR GPIOHandler::timerInterrupt(void *arg) {
 				pin->state = pin->raw_state;
 				pin->last_change = pin->raw_last_change;
 				pin->changes++;
-				handler->dirty_states[i] = NULL;
+				pin->handler->dirty = true;
+				handler->debouncing_states[i] = NULL;
 			}
 		} else if (next_update == 0 || handler->debounce_timeout + pin->raw_last_change - now < next_update) {
 			next_update = handler->debounce_timeout + pin->raw_last_change - now;
 		}
 	}
 
-	handler->dirty_states.erase(
-			std::remove(handler->dirty_states.begin(),
-					handler->dirty_states.end(), (pin_state*) NULL),
-			handler->dirty_states.end());
+	handler->debouncing_states.erase(
+			std::remove(handler->debouncing_states.begin(),
+					handler->debouncing_states.end(), (pin_state*) NULL),
+			handler->debouncing_states.end());
 
 	TIMERG0.int_clr_timers.t1 = 1;
 
-	if (next_update == 0 && handler->dirty_states.size() > 0) {
-		for (pin_state *pin : handler->dirty_states) {
+	if (next_update == 0 && handler->debouncing_states.size() > 0) {
+		for (pin_state *pin : handler->debouncing_states) {
 			if (next_update == 0 || handler->debounce_timeout + pin->raw_last_change - now < next_update) {
 				next_update = handler->debounce_timeout + pin->raw_last_change - now;
 				if (next_update == 0) {
@@ -259,15 +328,16 @@ void IRAM_ATTR GPIOHandler::updatePin(pin_state *pin) {
 		pin->raw_last_change = millis();
 
 		if (debounce_timeout > 0) {
-			if (std::count(dirty_states.begin(), dirty_states.end(), pin) == 0) {
-				dirty_states.push_back(pin);
+			if (std::count(debouncing_states.begin(), debouncing_states.end(), pin) == 0) {
+				debouncing_states.push_back(pin);
 			}
 
-			pin->handler->startTimer(debounce_timeout);
+			startTimer(debounce_timeout);
 		} else {
 			pin->state = state;
 			pin->last_change = pin->raw_last_change;
 			pin->changes++;
+			dirty = true;
 		}
 	}
 }
@@ -292,4 +362,16 @@ void IRAM_ATTR GPIOHandler::startTimer(const uint16_t delay) {
 
 bool GPIOHandler::isValidNameChar(const char c) {
 	return isAlphaNumeric(c) || c == ' ' || c == '_' || c == '-';
+}
+
+bool GPIOHandler::isValidName(const String &name) {
+	if (name.length() < 3 || name.length() > 32) {
+		return false;
+	}
+
+	if (!std::all_of(name.begin(), name.end(), GPIOHandler::isValidNameChar)) {
+		return false;
+	}
+
+	return true;
 }

@@ -29,6 +29,8 @@ void bounce_pin(const uint8_t pin, const uint8_t max_bounce_time,
 }
 
 void run_gpiohandler_tests() {
+	// Disable pin flash persistence, since that has its own tests.
+	gpio_handler.setStorageHandler(NULL);
 	RUN_TEST(test_gpiohandler_methods);
 	RUN_TEST(test_pins_connected);
 	RUN_TEST(test_pin_raw_state_with_interrupt);
@@ -44,6 +46,18 @@ void test_gpiohandler_methods() {
 	TEST_ASSERT_EQUAL_MESSAGE(0, gpio_handler.getWatchedPins().size(),
 			"The number of registered pins was not 0 at startup.");
 
+	// Test isValidPin with an invalid pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_PIN_INVALID, GPIOHandler::isValidPin(28),
+			"GPIOHandler::isValidPin didn't return PIN INVALID for an invalid pin.");
+
+	// Test isValidPin with a flash pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_FLASH_PIN, GPIOHandler::isValidPin(10),
+			"GPIOHandler::isValidPin didn't return FLASH PIN for a pin connected to the internal flash.");
+
+	// Test isValidPin with a valid pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_OK, GPIOHandler::isValidPin(IN_PIN),
+			"GPIOHandler::isValidPin didn't return OK for a valid pin.");
+
 	// Make sure that invalid pins cannot be registered.
 	TEST_ASSERT_EQUAL_MESSAGE(GPIO_PIN_INVALID,
 			gpio_handler.registerGPIO(24, "Test", false),
@@ -51,6 +65,11 @@ void test_gpiohandler_methods() {
 	TEST_ASSERT_EQUAL_MESSAGE(GPIO_PIN_INVALID,
 			gpio_handler.registerGPIO(42, "Test", false),
 			"Registering the invalid pin 42 didn't return the invalid pin error.");
+
+	// Test that pins connected to the onboard flash can't be registered
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_FLASH_PIN,
+			gpio_handler.registerGPIO(10, "Test", false),
+			"Registering the non GPI pin 24 didn't return the invalid pin error.");
 
 	// Make sure that pins with invalid names cannot be registered.
 	TEST_ASSERT_EQUAL_MESSAGE(GPIO_NAME_INVALID,
@@ -76,28 +95,45 @@ void test_gpiohandler_methods() {
 			"A standard GPIO pin could not be registered.");
 	TEST_ASSERT_EQUAL_MESSAGE(1, gpio_handler.getWatchedPins().size(),
 			"After registering one pin the size of the watched list is not 1.");
-	TEST_ASSERT_EQUAL_MESSAGE(IN_PIN, gpio_handler.getWatchedPins()[0].number,
+	pin_state pin = gpio_handler.getWatchedPins()[0];
+	TEST_ASSERT_EQUAL_MESSAGE(IN_PIN, pin.number,
 			"The number of the registered pin did not match the one given to the register method.");
-	TEST_ASSERT_EQUAL_STRING_MESSAGE("Test Pin_Name-5",
-			gpio_handler.getWatchedPins()[0].name.c_str(),
+	TEST_ASSERT_EQUAL_STRING_MESSAGE("Test Pin_Name-5", pin.name.c_str(),
 			"The name of the pin_state did not match the one given to the register method.");
-	TEST_ASSERT_FALSE_MESSAGE(gpio_handler.getWatchedPins()[0].pull_up,
+	TEST_ASSERT_FALSE_MESSAGE(pin.pull_up,
 			"The pull_up state of the registered pin did not match the value given to the register method.");
 
 	// Test GPIOHandler#getName for the newly registered pin.
-	TEST_ASSERT_EQUAL_STRING_MESSAGE(
-			gpio_handler.getWatchedPins()[0].name.c_str(),
+	TEST_ASSERT_EQUAL_STRING_MESSAGE(pin.name.c_str(),
 			gpio_handler.getName(IN_PIN).c_str(),
-			"The result of GPIOHandler#getName didn't match the registered name.");
+			"The result of GPIOHandler#getName didn't match the name of the pin state object.");
+
+	// Test GPIOHandler#getChanges for the newly registered pin.
+	TEST_ASSERT_EQUAL_MESSAGE(pin.changes, gpio_handler.getChanges(IN_PIN),
+			"The result of GPIOHandler#getChanges did not match the changes from the pin state object.");
+
+	// Test GPIOHandler#getState
+	TEST_ASSERT_EQUAL_MESSAGE(pin.state, gpio_handler.getState(IN_PIN),
+			"The result of GPIOHandler#getState didn't match the state of the pin state object.");
 
 	// Make sure a pin can not be registered twice.
 	TEST_ASSERT_EQUAL_MESSAGE(GPIO_ALREADY_WATCHED,
 			gpio_handler.registerGPIO(IN_PIN, "Test", false),
 			"Unregistering an already registered pin didn't return the already watched error.");
 
+	// Test updating an invalid pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_PIN_INVALID,
+			gpio_handler.updateGPIO(28, "Test", true),
+			"Updating an invalid pin didn't return a pin invalid error.");
+
+	// Test updating a flash pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_FLASH_PIN,
+			gpio_handler.updateGPIO(10, "Test", true),
+			"Updating a pin connected to the internal flash didn't return a flash pin error.");
+
 	// Test updating a not registered pin.
 	TEST_ASSERT_EQUAL_MESSAGE(GPIO_NOT_WATCHED,
-			gpio_handler.updateGPIO(10, "Test", true),
+			gpio_handler.updateGPIO(12, "Test", true),
 			"Updating a not registered pin didn't return a not watched error.");
 
 	// Test updating a pin to an invalid name.
@@ -142,8 +178,51 @@ void test_gpiohandler_methods() {
 	// Test isWatched for a registered pin.
 	TEST_ASSERT_MESSAGE(gpio_handler.isWatched(IN_PIN), "isWatched returned false for a registered pin.");
 
+	// Test isWatched for an invalid pin.
+	TEST_ASSERT_FALSE_MESSAGE(gpio_handler.isWatched(28), "isWatched returned true for an invalid pin.");
+
 	// Test isWatched for a not registered pin.
-	TEST_ASSERT_FALSE_MESSAGE(gpio_handler.isWatched(10), "isWatched returned true for a not registered pin.");
+	TEST_ASSERT_FALSE_MESSAGE(gpio_handler.isWatched(12), "isWatched returned true for a not registered pin.");
+
+	// Test setting the name of an invalid pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_PIN_INVALID,
+			gpio_handler.setName(28, "Name"),
+			"Setting the name for an invalid name didn't return a pin invalid error.");
+
+	// Test setting the name of a flash pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_FLASH_PIN, gpio_handler.setName(10, "Name"),
+			"Setting the name for a pin connected to the internal flash didn't return a flash pin error.");
+
+	// Test setting the name of a not registered pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_NOT_WATCHED,
+			gpio_handler.setName(12, "Name"),
+			"Setting the name for a not registered pin didn't return a not watched error.");
+
+	// Test setting the name of a registered pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_OK,
+			gpio_handler.setName(IN_PIN, "Yet another test name"),
+			"Setting the name of a registered pin failed.");
+	TEST_ASSERT_EQUAL_STRING_MESSAGE("Yet another test name",
+			gpio_handler.getName(IN_PIN).c_str(),
+			"The name of the input pin did not match the name it was just set to.");
+
+	// Test setting the number of changes of an invalid pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_PIN_INVALID, gpio_handler.setChanges(28, 15),
+			"Setting the number of changes of an invalid pin didn't return a pin invalid error.");
+
+	// Test setting the number of changes on a flash pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_FLASH_PIN, gpio_handler.setChanges(10, 15),
+			"Setting the number of changes of a pin connected to the internal flash didn't return a flash pin error.");
+
+	// Test setting the number of changes on a not registered pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_NOT_WATCHED, gpio_handler.setChanges(12, 15),
+			"Setting the number of changes of a not registered pin didn't return a not watched error.");
+
+	// Test setting the number of changes on a watched pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_OK, gpio_handler.setChanges(IN_PIN, 15),
+			"Setting the number of changes on a watched pin failed.");
+	TEST_ASSERT_EQUAL_MESSAGE(15, gpio_handler.getChanges(IN_PIN),
+			"The number of changes did not match the value that was just set.");
 
 	// Test setting the debouncing timeout.
 	gpio_handler.setDebounceTimeout(100);
@@ -159,13 +238,21 @@ void test_gpiohandler_methods() {
 	TEST_ASSERT_FALSE_MESSAGE(gpio_handler.interrupsEnabled(),
 			"Disabling pin interrupts didn't work.");
 
-	// Test reenabling pin interrupts.
+	// Test re-enabling pin interrupts.
 	gpio_handler.enableInterrupts();
 	TEST_ASSERT_MESSAGE(gpio_handler.interrupsEnabled(),
 			"Re-enabling pin interrupts didn't work.");
 
+	// Test unregistering an invalid pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_PIN_INVALID, gpio_handler.unregisterGPIO(28),
+			"Unregistering an invalid pin didn't return a pin invalid error.");
+
+	// Test unregistering an invalid pin.
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_FLASH_PIN, gpio_handler.unregisterGPIO(10),
+			"Unregistering a pin connected to the internal flash didn't return a flash pin error.");
+
 	// Test unregistering a not registered pin.
-	TEST_ASSERT_EQUAL_MESSAGE(GPIO_NOT_WATCHED, gpio_handler.unregisterGPIO(10),
+	TEST_ASSERT_EQUAL_MESSAGE(GPIO_NOT_WATCHED, gpio_handler.unregisterGPIO(12),
 			"Unregistering a not registered pin didn't return a not watched error.");
 
 	// Test unregistering a registered pin.
@@ -196,6 +283,7 @@ void test_pins_connected() {
 
 	// Make sure IN_PIN_2 changes when its input resistor is changed.
 	pinMode(IN_PIN_2, INPUT_PULLDOWN);
+	delay(1);
 	TEST_ASSERT_EQUAL_MESSAGE(LOW, digitalRead(IN_PIN_2),
 			"IN_PIN_2 state with a pull down resistor was not low.");
 	pinMode(IN_PIN_2, INPUT_PULLUP);

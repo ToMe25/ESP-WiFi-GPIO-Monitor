@@ -23,11 +23,6 @@ void bounce_pin(const uint8_t pin, const uint8_t max_bounce_time,
 		const bool target, const uint8_t bounces);
 
 /**
- * The method running all the GPIOHandler tests.
- */
-void run_gpiohandler_tests();
-
-/**
  * Tests registering, updating, and unregistering pins.
  * Also tests enabling/disabling interrupts.
  * As well as setting the debouncing timeout.

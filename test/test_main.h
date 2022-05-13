@@ -39,4 +39,19 @@ void setup();
  */
 void loop();
 
+/**
+ * The method running all the GPIOHandler tests.
+ */
+void run_gpiohandler_tests();
+
+/**
+ * The method running all the WebServerHandler tests.
+ */
+void run_webserver_tests();
+
+/**
+ * The method running all the StorageHandler tests.
+ */
+void run_storagehandler_tests();
+
 #endif /* TEST_TEST_MAIN_H_ */

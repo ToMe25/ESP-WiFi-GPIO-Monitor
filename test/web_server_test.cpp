@@ -32,8 +32,12 @@ std::unique_ptr<std::vector<std::string>> split_lines(const char *page) {
 	}
 
 	for (size_t i = 0; i < lines->size(); i++) {
-		(*lines)[i] = std::regex_replace((*lines)[i], std::regex("^\\s+"), "");
-		(*lines)[i] = std::regex_replace((*lines)[i], std::regex("\\s+$"), "");
+		std::string &line = lines->at(i);
+		size_t start = line.find_first_not_of(" \t\r\n");
+		size_t end = line.find_last_not_of(" \t\r\n") + 1;
+		if (start != std::string::npos && end != std::string::npos) {
+			line = line.substr(start, end - start);
+		}
 	}
 
 	return lines;
@@ -55,7 +59,7 @@ void check_pin_metric(const char *metrics_page, const char *metric_name,
 	help_start += metric_name;
 	size_t i = 0;
 	while (i < lines->size()) {
-		if ((*lines)[i].substr(0, help_start.length()) == help_start) {
+		if (lines->at(i).substr(0, help_start.length()) == help_start) {
 			break;
 		}
 		i++;
@@ -65,7 +69,7 @@ void check_pin_metric(const char *metrics_page, const char *metric_name,
 					metric_name).append(".").c_str());
 	TEST_ASSERT_EQUAL_STRING_MESSAGE(
 			std::string("# TYPE ").append(metric_name).append(" ").append(
-					metric_type).c_str(), (*lines)[i + 1].c_str(),
+					metric_type).c_str(), lines->at(i + 1).c_str(),
 			std::string(
 					"The line after the help line was not the type string for ").append(
 					metric_name).append(".").c_str());
@@ -76,9 +80,9 @@ void check_pin_metric(const char *metrics_page, const char *metric_name,
 	*metric_ln << "{pin=\"" << (uint16_t) pin_nr;
 	*metric_ln << "\",name=\"" << pin_name;
 	*metric_ln << "\"}";
-	std::string metric_line = (*metric_ln).str();
+	std::string metric_line = metric_ln->str();
 	for (i += 2; i < lines->size(); i++) {
-		if ((*lines)[i].substr(0, metric_line.length()) == metric_line) {
+		if (lines->at(i).substr(0, metric_line.length()) == metric_line) {
 			break;
 		} else if ((*lines)[i][0] == '#') {
 			std::ostringstream error;
@@ -93,8 +97,8 @@ void check_pin_metric(const char *metrics_page, const char *metric_name,
 	// Make sure the value of the metric is correct.
 	TEST_ASSERT_EQUAL_MESSAGE(value,
 			atoi(
-					(*lines)[i].substr((*lines)[i].find_last_of(' '),
-							(*lines)[i].length() - 1).c_str()),
+					lines->at(i).substr(lines->at(i).find_last_of(' '),
+							lines->at(i).length() - 1).c_str()),
 			std::string("The value of ").append(metric_line).append(
 					" isn't correct.").c_str());
 }
@@ -105,10 +109,10 @@ void check_json_pin(const char *pins_json, const uint8_t pin_nr,
 	// Make sure the returned json object starts and ends with curly brackets.
 	const std::unique_ptr<std::vector<std::string>> lines = split_lines(
 			pins_json);
-	TEST_ASSERT_EQUAL_MESSAGE('{', (*lines)[0][0],
+	TEST_ASSERT_EQUAL_MESSAGE('{', lines->at(0)[0],
 			"The pins json did not start with a curly bracket.");
 	TEST_ASSERT_EQUAL_MESSAGE('}',
-			(*lines)[lines->size() - 1][(*lines)[lines->size() - 1].length() - 1],
+			lines->at(lines->size() - 1)[lines->at(lines->size() - 1).length() - 1],
 			"The pins json did not end with a curly bracket.");
 
 	// Construct the key value pair to check against.
@@ -124,8 +128,8 @@ void check_json_pin(const char *pins_json, const uint8_t pin_nr,
 	// Test whether any line matches the given pin.
 	for (size_t i = 0; i < lines->size(); i++) {
 		if (stream->str()
-				== (*lines)[i].substr(i == 0,
-						(*lines)[i].length() - 1 - (i == 0))) {
+				== lines->at(i).substr(i == 0,
+						lines->at(i).length() - 1 - (i == 0))) {
 			return;
 		}
 	}
@@ -167,33 +171,41 @@ void check_index_pin(const char *index_page, const uint8_t pin_nr,
 
 	size_t i = 0;
 	for (; i < lines->size(); i++) {
-		if ((*lines)[i] == "<div class=\"state\">") {
+		if (lines->at(i) == "<div class=\"state\">") {
 			// Confirm there being enough lines left for a valid pin section.
 			TEST_ASSERT_LESS_THAN_MESSAGE(lines->size(), i + 6,
 					"There are not enough lines left in the index.html page after the start of a pin section.");
 
 			// Test that the second line is a pin number line.
-			std::unique_ptr<std::regex> pin_nr_line(
-					new std::regex(
-							"<span class=\"value\">Pin: <output name=\"pin\">\\d{1,2}</output></span>"));
-
-			TEST_ASSERT_MESSAGE(std::regex_match((*lines)[i + 2], *pin_nr_line),
-					"The second line after the start of the pin section was not a pin number line.");
-			pin_nr_line.reset();
+			const char *pin_nr_pattern = "<span class=\"value\">Pin: <output name=\"pin\">D</output></span>";
+			const char *pin_nr_line = lines->at(i + 2).c_str();
+			for (size_t i = 0; i < strlen(pin_nr_pattern) && i < strlen(pin_nr_line); i++) {
+				if (pin_nr_pattern[i] != *pin_nr_line) {
+					if (pin_nr_pattern[i] == 'D' && isDigit(*pin_nr_line)) {
+						if (isDigit(pin_nr_line[1])) {
+							pin_nr_line++;
+						}
+					} else {
+						TEST_FAIL_MESSAGE(
+								"The second line after the start of the pin section was not a pin number line.");
+					}
+				}
+				pin_nr_line++;
+			}
 
 			// Make sure this pin section is for the correct pin.
 			std::unique_ptr<std::ostringstream> str(new std::ostringstream());
 			*str << "<span class=\"value\">Pin: <output name=\"pin\">";
 			*str << (uint16_t) pin_nr << "</output></span>";
-			if (str->str() == (*lines)[i + 2]) {
+			if (str->str() == lines->at(i + 2)) {
 				// Make sure all lines are generated correctly.
-				check_index_pin_line(&(*lines)[++i], "Name", pin_name);
-				check_index_pin_line(&(*lines)[++i], "Pin", (uint64_t) pin_nr);
-				check_index_pin_line(&(*lines)[++i], "Resistor",
+				check_index_pin_line(&lines->at(++i), "Name", pin_name);
+				check_index_pin_line(&lines->at(++i), "Pin", (uint64_t) pin_nr);
+				check_index_pin_line(&lines->at(++i), "Resistor",
 						pull_up ? "Pull Up" : "Pull Down");
-				check_index_pin_line(&(*lines)[++i], "State",
+				check_index_pin_line(&lines->at(++i), "State",
 						state ? "High" : "Low");
-				check_index_pin_line(&(*lines)[++i], "Changes", changes);
+				check_index_pin_line(&lines->at(++i), "Changes", changes);
 
 				return;
 			} else {
@@ -223,7 +235,7 @@ void check_settings_pin(const char *settings_page, const uint8_t pin_nr,
 	// Check for the pin block for the given pin.
 	size_t i = 0;
 	for (; i < lines->size(); i++) {
-		if ((*lines)[i]
+		if (lines->at(i)
 				== "<form class=\"state\" method=\"post\" action=\"/settings.html\">") {
 			// Confirm there being enough lines left for a valid pin section.
 			TEST_ASSERT_LESS_THAN_MESSAGE(lines->size(), i + 21,
@@ -235,7 +247,7 @@ void check_settings_pin(const char *settings_page, const uint8_t pin_nr,
 			*str << (uint16_t) pin_nr;
 			*str
 					<< "\" max=\"39\" min=\"0\" title=\"The hardware pin to watch.\"";
-			if (str->str() == (*lines)[i + 7]) {
+			if (str->str() == lines->at(i + 7)) {
 				for (uint8_t j = 1; j < 22; j++) {
 					std::string line;
 					switch (j) {
@@ -292,11 +304,11 @@ void check_settings_pin(const char *settings_page, const uint8_t pin_nr,
 						line = str->str();
 						break;
 					default:
-						line = (*correct_lines)[j];
+						line = correct_lines->at(j);
 					}
 
 					TEST_ASSERT_EQUAL_STRING_MESSAGE(line.c_str(),
-							(*lines)[i + j].c_str(),
+							lines->at(i + j).c_str(),
 							"The current line in the pin section didn't match what it should have been.");
 				}
 
@@ -321,7 +333,7 @@ void check_message(const char *page, const char *message_type,
 
 	// Find the message line in the settings page.
 	for (size_t i = 0; i < lines->size(); i++) {
-		if ((*lines)[i] == "<div class=\"main\">") {
+		if (lines->at(i) == "<div class=\"main\">") {
 			TEST_ASSERT_LESS_THAN_MESSAGE(lines->size(), i + 1,
 					"There doesn't seem to be a message line.");
 			std::unique_ptr<std::ostringstream> str(new std::ostringstream);
@@ -335,7 +347,7 @@ void check_message(const char *page, const char *message_type,
 			*str << message;
 			*str << "</div>";
 			TEST_ASSERT_EQUAL_STRING_MESSAGE(str->str().c_str(),
-					(*lines)[i + 1].c_str(),
+					lines->at(i + 1).c_str(),
 					"The message line did not match what it should have been.");
 
 			return;
@@ -364,33 +376,33 @@ void check_delete_pin(const char *delete_page, const uint8_t pin_nr,
 			"After the beginning of the pin block there were not enough lines left, or no pin block was found.");
 
 	// Make sure the output lines are generated correctly.
-	check_index_pin_line(&(*lines)[++i], "Name", name);
-	check_index_pin_line(&(*lines)[++i], "Pin", (uint64_t) pin_nr);
-	check_index_pin_line(&(*lines)[++i], "Resistor",
+	check_index_pin_line(&lines->at(++i), "Name", name);
+	check_index_pin_line(&lines->at(++i), "Pin", (uint64_t) pin_nr);
+	check_index_pin_line(&lines->at(++i), "Resistor",
 			pull_up ? "Pull Up" : "Pull Down");
-	check_index_pin_line(&(*lines)[++i], "State", state ? "High" : "Low");
-	check_index_pin_line(&(*lines)[++i], "Changes", changes);
+	check_index_pin_line(&lines->at(++i), "State", state ? "High" : "Low");
+	check_index_pin_line(&lines->at(++i), "Changes", changes);
 
 	// Make sure the value lines of the hidden inputs are generated correctly.
 	std::unique_ptr<std::ostringstream> str(new std::ostringstream);
 	*str << "<input type=\"text\" name=\"name\" value=\"";
 	*str << name;
 	*str << '"';
-	TEST_ASSERT_EQUAL_STRING_MESSAGE(str->str().c_str(), (*lines)[++i].c_str(),
+	TEST_ASSERT_EQUAL_STRING_MESSAGE(str->str().c_str(), lines->at(++i).c_str(),
 			"The hidden name input line wasn't generated correctly.");
 	*str = std::ostringstream();
 	*str << "value=\"";
 	*str << (uint16_t) pin_nr;
 	*str << "\" max=\"39\" min=\"0\" title=\"The hardware pin to watch.\"";
 	TEST_ASSERT_EQUAL_STRING_MESSAGE(str->str().c_str(),
-			(*lines)[i += 6].c_str(),
+			lines->at(i += 6).c_str(),
 			"The hidden pin input line wasn't generated correctly.");
 	*str = std::ostringstream();
 	*str << "<input type=\"text\" name=\"resistor\" value=\"";
 	*str << (pull_up ? "Pull Up" : "Pull Down");
 	*str << '"';
 	TEST_ASSERT_EQUAL_STRING_MESSAGE(str->str().c_str(),
-			(*lines)[i += 3].c_str(),
+			lines->at(i += 3).c_str(),
 			"The hidden resistor input line wasn't generated correctly.");
 }
 
@@ -775,9 +787,9 @@ void test_settings_html() {
 	check_settings_pin(settings_page->c_str(), IN_PIN_2, "Test", false, false,
 			0);
 	std::unique_ptr<std::ostringstream> str(new std::ostringstream());
-	*str << "Couldn't add pin because pin ";
+	*str << "Couldn't add pin ";
 	*str << (uint16_t) IN_PIN_2;
-	*str << " is already being watched.";
+	*str << " because it is already being watched.";
 	check_message(settings_page->c_str(), "error", str->str().c_str(), false);
 
 	// Test registering an invalid pin.
@@ -796,9 +808,30 @@ void test_settings_html() {
 	check_settings_pin(settings_page->c_str(), IN_PIN_2, "Test", false, false,
 			0);
 	*str = std::ostringstream();
-	*str << "Couldn't add pin because pin ";
+	*str << "Couldn't add pin ";
 	*str << 24;
-	*str << " isn't an input pin.";
+	*str << " because it isn't an input pin.";
+	check_message(settings_page->c_str(), "error", str->str().c_str(), false);
+
+	// Test registering a flash pin.
+	client.begin(url);
+	client.addHeader("Content-Type", "application/x-www-form-urlencoded");
+	*post_body = std::ostringstream();
+	*post_body << "name=Test+Pin&pin=";
+	*post_body << 10;
+	*post_body << "&resistor=pull_down&action=add";
+	TEST_ASSERT_EQUAL_MESSAGE(400, client.POST(post_body->str().c_str()),
+			"POST /settings.html registering an invalid pin didn't return status code 400.");
+	*settings_page = client.getString();
+	client.end();
+	check_settings_pin(settings_page->c_str(), IN_PIN, "Test Pin Name", true,
+			false, 2);
+	check_settings_pin(settings_page->c_str(), IN_PIN_2, "Test", false, false,
+			0);
+	*str = std::ostringstream();
+	*str << "Couldn't add pin ";
+	*str << 10;
+	*str << " because it is connected to the internal flash.";
 	check_message(settings_page->c_str(), "error", str->str().c_str(), false);
 
 	// Test updating a pin.
@@ -835,9 +868,51 @@ void test_settings_html() {
 	check_settings_pin(settings_page->c_str(), IN_PIN_2, "Test Pin", true, true,
 			1);
 	*str = std::ostringstream();
-	*str << "Couldn't update pin because pin ";
+	*str << "Couldn't update pin ";
 	*str << (uint16_t) OUT_PIN;
-	*str << " isn't being watched.";
+	*str << " because it isn't being watched.";
+	check_message(settings_page->c_str(), "error", str->str().c_str(), false);
+
+	// Test updating an invalid pin.
+	client.begin(url);
+	client.addHeader("Content-Type", "application/x-www-form-urlencoded");
+	*post_body = std::ostringstream();
+	*post_body << "name=Test+Pin&pin=";
+	*post_body << 24;
+	*post_body << "&resistor=pull_down&action=update";
+	TEST_ASSERT_EQUAL_MESSAGE(400, client.POST(post_body->str().c_str()),
+			"POST /settings.html updating a not registered pin didn't return status code 400.");
+	*settings_page = client.getString();
+	client.end();
+	check_settings_pin(settings_page->c_str(), IN_PIN, "Test Pin Name", true,
+			false, 2);
+	check_settings_pin(settings_page->c_str(), IN_PIN_2, "Test Pin", true, true,
+			1);
+	*str = std::ostringstream();
+	*str << "Couldn't update pin ";
+	*str << 24;
+	*str << " because it isn't an input pin.";
+	check_message(settings_page->c_str(), "error", str->str().c_str(), false);
+
+	// Test updating a flash pin.
+	client.begin(url);
+	client.addHeader("Content-Type", "application/x-www-form-urlencoded");
+	*post_body = std::ostringstream();
+	*post_body << "name=Test+Pin&pin=";
+	*post_body << 10;
+	*post_body << "&resistor=pull_down&action=update";
+	TEST_ASSERT_EQUAL_MESSAGE(400, client.POST(post_body->str().c_str()),
+			"POST /settings.html updating a not registered pin didn't return status code 400.");
+	*settings_page = client.getString();
+	client.end();
+	check_settings_pin(settings_page->c_str(), IN_PIN, "Test Pin Name", true,
+			false, 2);
+	check_settings_pin(settings_page->c_str(), IN_PIN_2, "Test Pin", true, true,
+			1);
+	*str = std::ostringstream();
+	*str << "Couldn't update pin ";
+	*str << 10;
+	*str << " because it is connected to the internal flash.";
 	check_message(settings_page->c_str(), "error", str->str().c_str(), false);
 
 	// Test removing a registered pin.
@@ -870,9 +945,47 @@ void test_settings_html() {
 	check_settings_pin(settings_page->c_str(), IN_PIN, "Test Pin Name", true,
 			false, 2);
 	*str = std::ostringstream();
-	*str << "Couldn't delete pin because pin ";
+	*str << "Couldn't delete pin ";
 	*str << (uint16_t) IN_PIN_2;
-	*str << " isn't being watched.";
+	*str << " because it isn't being watched.";
+	check_message(settings_page->c_str(), "error", str->str().c_str(), false);
+
+	// Test removing an invalid pin.
+	client.begin(url);
+	client.addHeader("Content-Type", "application/x-www-form-urlencoded");
+	*post_body = std::ostringstream();
+	*post_body << "name=Test+Pin&pin=";
+	*post_body << 24;
+	*post_body << "&resistor=pull_down&action=delete";
+	TEST_ASSERT_EQUAL_MESSAGE(400, client.POST(post_body->str().c_str()),
+			"POST /settings.html removing a not registered pin didn't return status code 400.");
+	*settings_page = client.getString();
+	client.end();
+	check_settings_pin(settings_page->c_str(), IN_PIN, "Test Pin Name", true,
+			false, 2);
+	*str = std::ostringstream();
+	*str << "Couldn't delete pin ";
+	*str << 24;
+	*str << " because it isn't an input pin.";
+	check_message(settings_page->c_str(), "error", str->str().c_str(), false);
+
+	// Test removing a not registered pin.
+	client.begin(url);
+	client.addHeader("Content-Type", "application/x-www-form-urlencoded");
+	*post_body = std::ostringstream();
+	*post_body << "name=Test+Pin&pin=";
+	*post_body << 10;
+	*post_body << "&resistor=pull_down&action=delete";
+	TEST_ASSERT_EQUAL_MESSAGE(400, client.POST(post_body->str().c_str()),
+			"POST /settings.html removing a not registered pin didn't return status code 400.");
+	*settings_page = client.getString();
+	client.end();
+	check_settings_pin(settings_page->c_str(), IN_PIN, "Test Pin Name", true,
+			false, 2);
+	*str = std::ostringstream();
+	*str << "Couldn't delete pin ";
+	*str << 10;
+	*str << " because it is connected to the internal flash.";
 	check_message(settings_page->c_str(), "error", str->str().c_str(), false);
 
 	// Unregister pins from the gpiohandler.
@@ -969,6 +1082,24 @@ void test_delete_html() {
 	*str << "Pin ";
 	*str << 24;
 	*str << " isn't an input pin.";
+	check_message(delete_page->c_str(), "error", str->str().c_str(), false);
+
+	// Test trying to delete a flash pin using /delete.html.
+	client.begin(url);
+	client.addHeader("Content-Type", "application/x-www-form-urlencoded");
+	*post_body = std::ostringstream();
+	*post_body << "name=Test+Pin&pin=";
+	*post_body << 10;
+	*post_body << "&resistor=pull_up";
+	TEST_ASSERT_EQUAL_MESSAGE(400, client.POST(post_body->str().c_str()),
+			"POST /delete.html removing an invalid pin didn't return status code 400.");
+	*delete_page = client.getString();
+	client.end();
+	check_delete_pin(delete_page->c_str(), 10, "", false, false, 0);
+	*str = std::ostringstream();
+	*str << "Pin ";
+	*str << 10;
+	*str << " is connected to the internal flash.";
 	check_message(delete_page->c_str(), "error", str->str().c_str(), false);
 
 	// Unregister pin from gpiohandler.

@@ -7,6 +7,7 @@
 
 #include "main.h"
 #include "GPIOHandler.h"
+#include "StorageHandler.h"
 #include <ArduinoOTA.h>
 #include <ESPmDNS.h>
 
@@ -35,6 +36,17 @@ void setup() {
 
 	gpio_handler.setDebounceTimeout(PIN_DEBOUNCE_TIMEOUT);
 
+	bool spiffs = SPIFFS.begin(true);
+	if (!spiffs) {
+		Serial.println("Warning: Initializing SPIFFS failed, persistent storage will not be available!");
+	}
+
+	if (spiffs) {
+		storage_handler.loadGPIOHandler(gpio_handler);
+	} else {
+		storage_handler.setPinStoragePath(NULL);
+	}
+
 	setupOTA();
 	server.setup();
 
@@ -57,6 +69,7 @@ void loop() {
 	if (now - last_pin_check > PIN_CHECK_INTERVAL) {
 		last_pin_check = now;
 		gpio_handler.checkPins();
+		gpio_handler.writeToStorageHandler();
 	}
 }
 

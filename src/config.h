@@ -45,6 +45,7 @@ static const uint16_t WEBSERVER_PORT = 80;
  * This program checks all pins once at startup, and uses interrupts to immediately notice pin changes.
  * However as a fallback it also checks the pin state for all watched pins every so often.
  * This is the time for this check.
+ * Also used for writing potential state changes to the flash.
  * In milliseconds.
  * Default is 5 minutes.(5 * 60 * 1000 = 300000)
  */

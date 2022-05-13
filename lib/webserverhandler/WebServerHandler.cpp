@@ -65,7 +65,7 @@ void WebServerHandler::getMetrics(AsyncWebServerRequest *request) const {
 				<< std::endl;
 		stream << "# TYPE esp_pin_state gauge" << std::endl;
 
-		for (pin_state state : states) {
+		for (pin_state &state : states) {
 			stream << "esp_pin_state{pin=\"" << (uint16_t) state.number
 					<< "\",name=\"" << state.name.c_str() << "\"} "
 					<< state.state << std::endl;
@@ -75,7 +75,7 @@ void WebServerHandler::getMetrics(AsyncWebServerRequest *request) const {
 				<< std::endl;
 		stream << "# TYPE esp_pin_state_changes counter" << std::endl;
 
-		for (pin_state state : states) {
+		for (pin_state &state : states) {
 			stream << "esp_pin_state_changes{pin=\"" << (uint16_t) state.number
 					<< "\",name=\"" << state.name.c_str() << "\"} "
 					<< state.changes << std::endl;
@@ -188,21 +188,24 @@ void WebServerHandler::handleSettings(AsyncWebServerRequest *request) const {
 			}
 
 			if (err != GPIO_OK) {
-				message = "Couldn't " + action + " pin because ";
+				message = "Couldn't " + action + " pin " + pin + " because ";
 				error = true;
 
 				switch (err) {
 				case GPIO_PIN_INVALID:
-					message += "pin " + pin + " isn't an input pin.";
+					message += "it isn't an input pin.";
 					break;
 				case GPIO_NAME_INVALID:
 					message += '"' + name + "\" isn't a valid pin name.";
 					break;
 				case GPIO_ALREADY_WATCHED:
-					message += "pin " + pin + " is already being watched.";
+					message += "it is already being watched.";
 					break;
 				case GPIO_NOT_WATCHED:
-					message += "pin " + pin + " isn't being watched.";
+					message += "it isn't being watched.";
+					break;
+				case GPIO_FLASH_PIN:
+					message += "it is connected to the internal flash.";
 					break;
 				default:
 					message += "of an unknown error.";
@@ -235,7 +238,7 @@ void WebServerHandler::handleSettings(AsyncWebServerRequest *request) const {
 		std::regex state("\\$state");
 		std::regex changes("\\$changes");
 		std::regex end("[ \\t]*<!-- Pin states end -->");
-		for (pin_state watched : watched_pins) {
+		for (pin_state &watched : watched_pins) {
 			pin_html = SETTINGS_PIN_HTML;
 			converter << (uint16_t) watched.number;
 			pin_html = std::regex_replace(pin_html, pin, converter.str());
@@ -271,7 +274,7 @@ void WebServerHandler::postDelete(AsyncWebServerRequest *request) const {
 	if (request->hasParam("pin", true)) {
 		uint8_t pin_nr = atoi(request->getParam("pin", true)->value().c_str());
 		if (gpio_handler.isWatched(pin_nr)) {
-			for (pin_state pin_state : gpio_handler.getWatchedPins()) {
+			for (pin_state &pin_state : gpio_handler.getWatchedPins()) {
 				if (pin_state.number == pin_nr) {
 					pin = pin_state;
 				}
@@ -279,10 +282,20 @@ void WebServerHandler::postDelete(AsyncWebServerRequest *request) const {
 		} else {
 			error = "Pin ";
 			error += (uint16_t) pin_nr;
-			if (digitalPinIsValid(pin_nr)) {
+			gpio_err_t err = GPIOHandler::isValidPin(pin_nr);
+			switch(err) {
+			case GPIO_OK:
 				error += " isn't being watched.";
-			} else {
+				break;
+			case GPIO_PIN_INVALID:
 				error += " isn't an input pin.";
+				break;
+			case GPIO_FLASH_PIN:
+				error += " is connected to the internal flash.";
+				break;
+			default:
+				error = "An unknown error occurred.";
+				break;
 			}
 			pin.number = pin_nr;
 		}
@@ -320,7 +333,7 @@ void WebServerHandler::getPinsJson(AsyncWebServerRequest *request) const {
 	json << '{';
 
 	bool first = true;
-	for (pin_state state : gpio_handler.getWatchedPins()) {
+	for (pin_state &state : gpio_handler.getWatchedPins()) {
 		if (first) {
 			first = false;
 		} else {

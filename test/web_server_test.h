@@ -135,11 +135,6 @@ void check_delete_pin(const char *delete_page, const uint8_t pin_nr,
 void init_web_server();
 
 /**
- * The method running all the WebServerHandler tests.
- */
-void run_webserver_tests();
-
-/**
  * Test whether all the static pages(css and javascript) return the correct status code and content type.
  */
 void test_static_pages();
