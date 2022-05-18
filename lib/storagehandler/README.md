@@ -3,7 +3,7 @@ The Storage Handler stores and loads pin states to/from persistent store, for ex
 It can either store a vector of pin state objects, or a [GPIO Handler](../gpiohandler/README.md).
 
 The Storage Handler is given a filesystem and a path upon creation, in which it then stores the given pins whenever `storePins` or `storeGPIOHandler` is called.  
-The path can later be changed, changing the filesystem requires creating a new Storage Handler.
+Both the path and the filesystem can be changed after creation.
 
 Storing a [GPIO Handler](../gpiohandler/README.md) using `storeGPIOHandler` is preferred since it disables pin interrupts and pin debouncing while storing the pins.  
 This is important, because a pin interrupt being called while the Flash writes causes a crash.

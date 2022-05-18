@@ -67,18 +67,6 @@ storage_err_t StorageHandler::storePins(const std::vector<pin_state> &pins) {
 	}
 }
 
-void StorageHandler::setPinStoragePath(const char *pin_storage_path) {
-	if (pin_storage_path == NULL || strlen(pin_storage_path) == 0) {
-		pin_storage = NULL;
-	} else {
-		pin_storage = pin_storage_path;
-	}
-}
-
-const char* StorageHandler::getPinStoragePath() const {
-	return pin_storage;
-}
-
 storage_err_t StorageHandler::loadGPIOHandler(GPIOHandler &handler) const {
 	if (pin_storage == NULL) {
 		return STORAGE_PATH_NULL;
@@ -166,6 +154,26 @@ storage_err_t StorageHandler::loadGPIOHandler(GPIOHandler &handler) const {
 	}
 	handler.setDebounceTimeout(debounce);
 	return STORAGE_OK;
+}
+
+void StorageHandler::setPinStoragePath(const char *pin_storage_path) {
+	if (pin_storage_path == NULL || strlen(pin_storage_path) == 0) {
+		pin_storage = NULL;
+	} else {
+		pin_storage = pin_storage_path;
+	}
+}
+
+const char* StorageHandler::getPinStoragePath() const {
+	return pin_storage;
+}
+
+void StorageHandler::setFileSystem(fs::FS &file_system) {
+	fs = file_system;
+}
+
+fs::FS& StorageHandler::getFileSystem() const {
+	return fs;
 }
 
 int StorageHandler::getWriteError() const {

@@ -6,16 +6,16 @@
  */
 
 #include "WebServerHandler.h"
-#include "GPIOHandler.h"
 #include <ESPmDNS.h>
 #include <functional>
 #include <regex>
 
-WebServerHandler::WebServerHandler(const uint16_t port) :
-		_port(port), server(port) {
+WebServerHandler::WebServerHandler(const uint16_t port, GPIOHandler &gpio) :
+		_port(port), server(port), gpio(&gpio) {
 }
 
 WebServerHandler::~WebServerHandler() {
+	end();
 }
 
 void WebServerHandler::setup() {
@@ -56,10 +56,28 @@ void WebServerHandler::setup() {
 	MDNS.addService("http", "tcp", _port);
 }
 
+void WebServerHandler::begin() {
+	setup();
+}
+
+void WebServerHandler::end() {
+	server.end();
+
+	mdns_service_remove("http", "tcp");
+}
+
+void WebServerHandler::setGPIOHandler(GPIOHandler &gpio) {
+	this->gpio = &gpio;
+}
+
+GPIOHandler& WebServerHandler::getGPIOHandler() const {
+	return *gpio;
+}
+
 void WebServerHandler::getMetrics(AsyncWebServerRequest *request) const {
 	std::ostringstream stream;
 
-	std::vector<pin_state> states = gpio_handler.getWatchedPins();
+	std::vector<pin_state> states = gpio->getWatchedPins();
 	if (states.size() > 0) {
 		stream	<< "# HELP esp_pin_state The current digital state of an ESP GPIO/GPI pin."
 				<< std::endl;
@@ -95,7 +113,7 @@ void WebServerHandler::onNotFound(AsyncWebServerRequest *request) const {
 void WebServerHandler::getIndex(AsyncWebServerRequest *request) const {
 	std::string response(INDEX_HTML);
 
-	std::vector<pin_state> watched_pins = gpio_handler.getWatchedPins();
+	std::vector<pin_state> watched_pins = gpio->getWatchedPins();
 	if (watched_pins.size() > 0) {
 		std::ostringstream converter;
 		std::string state_html;
@@ -173,14 +191,14 @@ void WebServerHandler::handleSettings(AsyncWebServerRequest *request) const {
 		if (!error) {
 			gpio_err_t err = GPIO_OK;
 			if (action == "add") {
-				err = gpio_handler.registerGPIO(atoi(pin.c_str()), name,
+				err = gpio->registerGPIO(atoi(pin.c_str()), name,
 						pull_up);
 				message = "Successfully added Pin to be watched.";
 			} else if (action == "update") {
-				err = gpio_handler.updateGPIO(atoi(pin.c_str()), name, pull_up);
+				err = gpio->updateGPIO(atoi(pin.c_str()), name, pull_up);
 				message = "Successfully updated watched Pin.";
 			} else if (action == "delete") {
-				err = gpio_handler.unregisterGPIO(atoi(pin.c_str()));
+				err = gpio->unregisterGPIO(atoi(pin.c_str()));
 				message = "Successfully removed watched Pin.";
 			} else if (action != "cancel") {
 				message = "Received invalid action \"" + action + "\".";
@@ -227,7 +245,7 @@ void WebServerHandler::handleSettings(AsyncWebServerRequest *request) const {
 		}
 	}
 
-	std::vector<pin_state> watched_pins = gpio_handler.getWatchedPins();
+	std::vector<pin_state> watched_pins = gpio->getWatchedPins();
 	if (watched_pins.size() > 0) {
 		std::ostringstream converter;
 		std::string pin_html;
@@ -273,8 +291,8 @@ void WebServerHandler::postDelete(AsyncWebServerRequest *request) const {
 	String error;
 	if (request->hasParam("pin", true)) {
 		uint8_t pin_nr = atoi(request->getParam("pin", true)->value().c_str());
-		if (gpio_handler.isWatched(pin_nr)) {
-			for (pin_state &pin_state : gpio_handler.getWatchedPins()) {
+		if (gpio->isWatched(pin_nr)) {
+			for (pin_state &pin_state : gpio->getWatchedPins()) {
 				if (pin_state.number == pin_nr) {
 					pin = pin_state;
 				}
@@ -333,7 +351,7 @@ void WebServerHandler::getPinsJson(AsyncWebServerRequest *request) const {
 	json << '{';
 
 	bool first = true;
-	for (pin_state &state : gpio_handler.getWatchedPins()) {
+	for (pin_state &state : gpio->getWatchedPins()) {
 		if (first) {
 			first = false;
 		} else {

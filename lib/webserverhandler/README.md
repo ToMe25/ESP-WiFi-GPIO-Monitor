@@ -13,6 +13,6 @@ The Web Server Handler also publishes the pin states in a [prometheus](https://p
 
 In addition the Web Server Handler registers a `http` service to the mDNS provider.
 
-Currently the Web Server Handler can only use the default [GPIO Handler](../gpiohandler/README.md) instance.
+The Web Server Handler has to be given a [GPIO Handler](../gpiohandler/README.md) instance at creation, however this can be changed later.
 
 There is no default instance of the Web Server Handler, and creating multiple of them should cause no issues, as long as they are on different ports.

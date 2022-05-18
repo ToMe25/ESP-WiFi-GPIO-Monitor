@@ -260,6 +260,18 @@ private:
 	static constexpr hw_timer_index_t DEBOUNCE_TIMER = { TIMER_GROUP_0, TIMER_1 };
 
 	/**
+	 * The config used for the debounce timer.
+	 */
+	const timer_config_t debounce_timer_config = {
+		false,
+		false,
+		TIMER_INTR_LEVEL,
+		TIMER_COUNT_UP,
+		false,
+		80,
+	};
+
+	/**
 	 * The pins that are currently being watched.
 	 */
 	std::map<uint8_t, pin_state> watched;
@@ -283,18 +295,6 @@ private:
 	 * Whether this GPIOHandler changed since the last time it was written to the flash.
 	 */
 	bool dirty = false;
-
-	/**
-	 * The config used for the debounce timer.
-	 */
-	const timer_config_t debounce_timer_config = {
-		false,
-		false,
-		TIMER_INTR_LEVEL,
-		TIMER_COUNT_UP,
-		false,
-		80,
-	};
 
 	/**
 	 * How long a pin has to stay in the same state for its state to be considered changed.

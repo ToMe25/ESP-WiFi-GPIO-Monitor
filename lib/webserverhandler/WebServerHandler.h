@@ -8,6 +8,7 @@
 #ifndef LIB_WEBSERVERHANDLER_H_
 #define LIB_WEBSERVERHANDLER_H_
 
+#include "GPIOHandler.h"
 #include <ESPAsyncWebServer.h>
 
 #define HTML_BINARY "_binary_lib_webserverhandler_html_"
@@ -29,15 +30,46 @@ public:
 	 *
 	 * @param port	The port on which the web server should listed.
 	 */
-	WebServerHandler(const uint16_t port = 80);
+	WebServerHandler(const uint16_t port = 80, GPIOHandler &gpio = gpio_handler);
 	virtual ~WebServerHandler();
 
 	/**
 	 * Initializes the web server.
 	 * Adds uri handlers and similar.
 	 * Also adds a mDNS txt for the web server.
+	 *
+	 * Same as begin.
 	 */
 	void setup();
+
+	/**
+	 * Initializes the web server.
+	 * Adds uri handlers and similar.
+	 * Also adds a mDNS txt for the web server.
+	 *
+	 * Same as setup.
+	 */
+	void begin();
+
+	/**
+	 * Stops the web server and removes the mDNS txt.
+	 */
+	void end();
+
+	/**
+	 * Sets the GPIOHandler to use.
+	 * Both to read the pin states from, and write pin changes to.
+	 *
+	 * @param gpio	The new GPIOHandler to use.
+	 */
+	void setGPIOHandler(GPIOHandler &gpio);
+
+	/**
+	 * Gets the currently used GPIOHandler.
+	 *
+	 * @return	The current GPIOHandler.
+	 */
+	GPIOHandler& getGPIOHandler() const;
 private:
 	/**
 	 * The port on which this web server listens to http requests.
@@ -48,6 +80,12 @@ private:
 	 * The underlying web server handling the web requests.
 	 */
 	AsyncWebServer server;
+
+	/**
+	 * The GPIOHandler from which to get the pins to display, and on which to register/update pins.
+	 * Cannot be NULL unless something goes wrong.
+	 */
+	GPIOHandler *gpio;
 
 	/**
 	 * The method responding to http requests for the prometheus metrics endpoint.

@@ -16,4 +16,3 @@ A list of changes/additions for this program to implement in the future.
  * Change filesystem to LittleFS with arduino-esp32 2.0.X
  * Make StorageHandler only rewrite the file if any of the pin states changed(either compared to the current file, or a cached list)
  * Store last pin state change time?
- * Allow WebServerHandler to use arbitrary GPIOHandler instance

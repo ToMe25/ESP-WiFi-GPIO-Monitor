@@ -66,6 +66,17 @@ public:
 	storage_err_t storePins(const std::vector<pin_state> &pins);
 
 	/**
+	 * Reads the pin storage file and registers all pins found in it.
+	 * Overriding them if they are already registered.
+	 * Removes pins that are registered but not found in the pin storage file.
+	 *
+	 * @param handler	The GPIOHandler to load the pins into.
+	 * @return	What went wrong when trying to load the given GPIOHandler from the flash.
+	 * 			STORAGE_OK if nothing went wrong.
+	 */
+	storage_err_t loadGPIOHandler(GPIOHandler &handler) const;
+
+	/**
 	 * Sets the path of the file in which to store the pin states in the future.
 	 * Does not delete the previous file, nor does it copy its content.
 	 * Setting this to NULL basically disables pin storage.
@@ -82,15 +93,18 @@ public:
 	const char* getPinStoragePath() const;
 
 	/**
-	 * Reads the pin storage file and registers all pins found in it.
-	 * Overriding them if they are already registered.
-	 * Removes pins that are registered but not found in the pin storage file.
+	 * Sets the file system on which to store and from which to load pin states.
 	 *
-	 * @param handler	The GPIOHandler to load the pins into.
-	 * @return	What went wrong when trying to load the given GPIOHandler from the flash.
-	 * 			STORAGE_OK if nothing went wrong.
+	 * @param file_system	The new file system to use for data storage.
 	 */
-	storage_err_t loadGPIOHandler(GPIOHandler &handler) const;
+	void setFileSystem(fs::FS &file_system);
+
+	/**
+	 * Gets the file system currently used to store the pin storage file.
+	 *
+	 * @return	The current file system.
+	 */
+	fs::FS& getFileSystem() const;
 
 	/**
 	 * Gets the write error the file system returned in the last write.
