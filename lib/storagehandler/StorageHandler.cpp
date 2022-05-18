@@ -9,6 +9,11 @@
 
 StorageHandler storage_handler;
 
+StorageHandler::StorageHandler(fs::FS &file_system,
+		const char *pin_storage_path) :
+		fs(&file_system), pin_storage(pin_storage_path) {
+}
+
 storage_err_t StorageHandler::storeGPIOHandler(GPIOHandler &handler) {
 	StorageHandler *storage = handler.getStorageHandler();
 	handler.setStorageHandler(NULL);
@@ -33,14 +38,14 @@ storage_err_t StorageHandler::storePins(const std::vector<pin_state> &pins) {
 		return STORAGE_PATH_NULL;
 	}
 
-	if (fs.exists(pin_storage)) {
-		fs::File file = fs.open(pin_storage);
+	if (fs->exists(pin_storage)) {
+		fs::File file = fs->open(pin_storage);
 		if (file.isDirectory()) {
 			return STORAGE_IS_DIR;
 		}
 	}
 
-	fs::File storage_file = fs.open(pin_storage, FILE_WRITE);
+	fs::File storage_file = fs->open(pin_storage, FILE_WRITE);
 
 	if (!storage_file) {
 		return STORAGE_OPEN_FAIL;
@@ -72,11 +77,11 @@ storage_err_t StorageHandler::loadGPIOHandler(GPIOHandler &handler) const {
 		return STORAGE_PATH_NULL;
 	}
 
-	if (!fs.exists(pin_storage)) {
+	if (!fs->exists(pin_storage)) {
 		return STORAGE_NOT_FOUND;
 	}
 
-	fs::File storage_file = fs.open(pin_storage);
+	fs::File storage_file = fs->open(pin_storage);
 
 	if (!storage_file) {
 		return STORAGE_OPEN_FAIL;
@@ -169,11 +174,11 @@ const char* StorageHandler::getPinStoragePath() const {
 }
 
 void StorageHandler::setFileSystem(fs::FS &file_system) {
-	fs = file_system;
+	fs = &file_system;
 }
 
 fs::FS& StorageHandler::getFileSystem() const {
-	return fs;
+	return *fs;
 }
 
 int StorageHandler::getWriteError() const {

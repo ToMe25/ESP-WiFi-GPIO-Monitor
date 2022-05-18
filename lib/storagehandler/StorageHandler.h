@@ -32,9 +32,7 @@ public:
 	 * @param pin_storage_path	The path to the file in which the pin data should be stored.
 	 */
 	StorageHandler(fs::FS &file_system = SPIFFS, const char *pin_storage_path =
-			"/pins.csv") :
-			fs(file_system), pin_storage(pin_storage_path) {
-	}
+			"/pins.csv");
 
 	/**
 	 * Destroys this StorageHandler.
@@ -117,8 +115,9 @@ public:
 private:
 	/**
 	 * The file system to store the GPIO pin states onto.
+	 * Can never be NULL unless something major goes wrong.
 	 */
-	fs::FS &fs;
+	fs::FS *fs;
 
 	/**
 	 * The path of the file on the file system to store the pin states in.
